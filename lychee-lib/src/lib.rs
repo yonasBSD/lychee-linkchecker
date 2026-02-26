@@ -50,6 +50,9 @@
 #[cfg(doctest)]
 doc_comment::doctest!("../../README.md");
 
+#[cfg(all(test, not(doctest)))]
+use tokio_stream as _;
+
 /// Check online archives to try and restore broken links
 pub mod archive;
 mod basic_auth;
@@ -76,6 +79,8 @@ pub mod ratelimit;
 /// local IPs or e-mail addresses
 pub mod filter;
 
+pub mod waiter;
+
 #[cfg(test)]
 use doc_comment as _; // required for doctest
 use ring as _; // required for apple silicon
@@ -97,6 +102,6 @@ pub use crate::{
         FileExtensions, FileType, Input, InputContent, InputResolver, InputSource, LycheeResult,
         Preprocessor, Redirect, Redirects, Request, RequestError, ResolvedInputSource, Response,
         ResponseBody, Result, Status, StatusCodeSelector, StatusRange, StatusRangeError,
-        uri::raw::RawUri, uri::valid::Uri,
+        uri::raw::RawUri, uri::raw::RawUriSpan, uri::valid::Uri,
     },
 };
