@@ -78,6 +78,30 @@ mod cli {
         assert_eq!(actual_lines, expected_lines);
     }
 
+    /// Parse lychee's json output to [`Value`].
+    /// Additionally remove the non-deterministic duration to simplify subsequent assertions
+    fn stdout_to_json(stdout: &[u8]) -> Result<Value> {
+        let mut output_json = serde_json::from_slice::<Value>(stdout)?;
+        remove_nondeterministic_duration(&mut output_json["success_map"]);
+        remove_nondeterministic_duration(&mut output_json["redirect_map"]);
+        return Ok(output_json);
+
+        fn remove_nondeterministic_duration(value: &mut Value) {
+            let map = value.as_object_mut().expect("Expected object");
+            map.iter_mut().for_each(|(_, v)| {
+                v.as_array_mut()
+                    .expect("Expected array of objects")
+                    .iter_mut()
+                    .for_each(|a| {
+                        a.as_object_mut()
+                            .expect("Expected object")
+                            .remove("duration")
+                            .expect("Value of 'duration' not present");
+                    });
+            });
+        }
+    }
+
     /// Test the output of the JSON format.
     macro_rules! test_json_output {
         ($test_file:expr, $expected:expr $(, $arg:expr)*) => {{
@@ -173,7 +197,7 @@ mod cli {
             .assert()
             .success();
         let output = cmd.output().unwrap();
-        let output_json = serde_json::from_slice::<Value>(&output.stdout)?;
+        let output_json = stdout_to_json(&output.stdout)?;
 
         // Check that the output is valid JSON
         assert!(output_json.is_object());
@@ -184,8 +208,7 @@ mod cli {
         assert!(output_json.get("excluded_map").is_some());
 
         // Check the success map
-        let success_map = output_json["success_map"].as_object().unwrap();
-        assert_eq!(success_map.len(), 1);
+        let success_map = &output_json["success_map"];
 
         // Get the actual URL from the mock server for comparison
         let mock_url = mock_server_ok.uri();
@@ -209,8 +232,7 @@ mod cli {
 
         // Compare the actual success map with the expected one
         assert_eq!(
-            success_map,
-            expected_success_map.as_object().unwrap(),
+            *success_map, expected_success_map,
             "Success map doesn't match expected structure"
         );
 
@@ -235,7 +257,7 @@ mod cli {
         let output = cmd.output()?;
 
         // Check that the output is valid JSON
-        assert!(serde_json::from_slice::<Value>(&output.stdout).is_ok());
+        stdout_to_json(&output.stdout)?;
         Ok(())
     }
 
@@ -253,11 +275,8 @@ mod cli {
 
         let output = cmd.output()?;
 
-        // Check that the output is valid JSON
-        assert!(serde_json::from_slice::<Value>(&output.stdout).is_ok());
-
         // Parse site error status from the error_map
-        let output_json = serde_json::from_slice::<Value>(&output.stdout).unwrap();
+        let output_json = stdout_to_json(&output.stdout)?;
         let site_error_status =
             &output_json["error_map"][&test_path.to_str().unwrap()][0]["status"];
 
@@ -1555,6 +1574,36 @@ The config file should contain every possible key for documentation purposes."
     }
 
     #[tokio::test]
+    async fn test_no_duplicate_requests() {
+        let server = wiremock::MockServer::start().await;
+        let count = 100; // given 100 duplicate URLs
+        let cached = "99.0%"; // we expect 99 out of 100 to be cached
+
+        wiremock::Mock::given(wiremock::matchers::method("GET"))
+            .respond_with(|_: &_| {
+                // Simulate real-world delay.
+                // Keep the delay to prove how we make use of synchronization
+                // primitives to prevent duplicate requests.
+                std::thread::sleep(std::time::Duration::from_secs(1));
+                ResponseTemplate::new(200)
+            })
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        cargo_bin_cmd!()
+            .write_stdin(format!("{} ", server.uri()).repeat(count))
+            .arg("-")
+            .arg("--host-stats")
+            // the request interval must not have an affect on duplicates
+            .arg("--host-request-interval=1s")
+            .assert()
+            .success()
+            .stdout(contains("100.0% success"))
+            .stdout(contains(format!("{cached} cached")));
+    }
+
+    #[tokio::test]
     async fn test_process_internal_host_caching() -> Result<()> {
         // Note that this process-internal per-host caching
         // has no direct relation to the lychee cache file
@@ -2484,11 +2533,9 @@ The config file should contain every possible key for documentation purposes."
                 .clone()
                 .unwrap();
 
-            let stdout = str::from_utf8(&output.stdout).unwrap().to_string();
-            let json: Value = serde_json::from_str(stdout.as_str()).unwrap();
             let stderr = str::from_utf8(&output.stderr).unwrap().to_string();
 
-            (json, stderr)
+            (stdout_to_json(&output.stdout).unwrap(), stderr)
         }
     }
 
