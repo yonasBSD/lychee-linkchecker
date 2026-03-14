@@ -464,14 +464,14 @@ Options:
           This is useful when the default extensions are not enough and you don't
           want to provide a long list of inputs (e.g. file1.html, file2.md, etc.)
 
-          [default: md,mkd,mdx,mdown,mdwn,mkdn,mkdown,markdown,html,htm,css,txt]
+          [default: md,mkd,mdx,mdown,mdwn,mkdn,mkdown,markdown,html,htm,css,txt,xml]
 
   -f, --format <FORMAT>
           Output format of final status report
 
           [default: compact]
 
-          [possible values: compact, detailed, json, junit, markdown, raw]
+          [possible values: compact, detailed, json, junit, markdown]
 
       --fallback-extensions <FALLBACK_EXTENSIONS>
           When checking locally, attempts to locate missing files by trying the given
@@ -602,7 +602,7 @@ Options:
   -m, --max-redirects <MAX_REDIRECTS>
           Maximum number of allowed redirects
 
-          [default: 5]
+          [default: 10]
 
       --max-cache-age <MAX_CACHE_AGE>
           Discard all cached requests older than this duration
