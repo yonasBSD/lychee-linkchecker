@@ -407,9 +407,6 @@ Options:
           The provided base URL value must either be a URL (with scheme) or an absolute path.
           Note that certain URL schemes cannot be used as a base, e.g., `data` and `mailto`.
 
-      --base <BASE>
-          Deprecated; use `--base-url` instead
-
       --basic-auth <BASIC_AUTH>
           Basic authentication support. E.g. `http://example.com username:password`
 
@@ -468,9 +465,6 @@ Options:
       --exclude <EXCLUDE>
           Exclude URLs and mail addresses from checking. The values are treated as regular expressions
 
-      --exclude-file <EXCLUDE_FILE>
-          Deprecated; use `--exclude-path` instead
-
       --exclude-link-local[=<false|true>]
           Exclude link-local IP address range from checking
 
@@ -494,7 +488,7 @@ Options:
           This is useful when the default extensions are not enough and you don't
           want to provide a long list of inputs (e.g. file1.html, file2.md, etc.)
 
-          [default: md,mkd,mdx,mdown,mdwn,mkdn,mkdown,markdown,html,htm,css,txt,xml]
+          [default: md,markdown,mdx,qmd,rmd,mkd,mkdn,mdwn,mdown,mkdown,html,htm,css,txt,xml]
 
   -f, --format <FORMAT>
           Output format of final status report

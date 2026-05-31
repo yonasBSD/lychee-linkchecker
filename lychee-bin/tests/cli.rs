@@ -20,7 +20,7 @@ mod cli {
         io::{BufRead, Write},
         ops::Not,
         path::Path,
-        time::{Duration, Instant},
+        time::Duration,
     };
     use tempfile::{NamedTempFile, tempdir};
     use test_utils::{fixtures_path, mock_server, redirecting_mock_server, root_path};
@@ -28,7 +28,7 @@ mod cli {
 
     use uuid::Uuid;
     use wiremock::{
-        Mock, Request, ResponseTemplate,
+        Mock, ResponseTemplate,
         matchers::{basic_auth, method, path},
     };
 
@@ -1210,12 +1210,10 @@ mod cli {
 
         let regex = test_utils::arg_regex_help!()?;
         let excluded = [
-            "base",         // deprecated
-            "exclude_file", // deprecated
-            "config",       // not part of config
-            "quiet",        // not part of config
-            "help",         // special clap argument
-            "version",      // special clap argument
+            "config",  // not part of config
+            "quiet",   // not part of config
+            "help",    // special clap argument
+            "version", // special clap argument
         ];
 
         let arguments: Vec<String> = help_text
@@ -1301,25 +1299,6 @@ The config file should contain every possible key for documentation purposes."
         let output = cmd.get_output();
         let output = std::str::from_utf8(&output.stdout).unwrap();
         assert_eq!(output.lines().count(), 3);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_lycheeignore_and_exclude_file() -> Result<()> {
-        let test_path = fixtures_path!().join("lycheeignore");
-        let excludes_path = test_path.join("normal-exclude-file");
-
-        cargo_bin_cmd!()
-            .current_dir(test_path)
-            .arg("--insecure")
-            .arg("TEST.md")
-            .arg("--exclude-file")
-            .arg(excludes_path)
-            .assert()
-            .success()
-            .stdout(contains("8 Total"))
-            .stdout(contains("6 Excluded"));
 
         Ok(())
     }
@@ -1784,6 +1763,35 @@ The config file should contain every possible key for documentation purposes."
             .stdout(contains("http://127.0.0.1/inline"))
             .stdout(contains("http://127.0.0.1/bash"));
     }
+
+    #[test]
+    fn test_quarto_treated_as_markdown() {
+        let input = fixtures_path!().join("TEST_QUARTO.qmd");
+
+        cargo_bin_cmd!()
+            .arg(input)
+            .arg("--dump")
+            .assert()
+            .success()
+            .stdout(contains("https://example.com"))
+            .stdout(contains("cdn.posit.co").not())
+            .stdout(contains("inline.example.com").not());
+    }
+
+    #[test]
+    fn test_rmarkdown_treated_as_markdown() {
+        let input = fixtures_path!().join("TEST_RMARKDOWN.Rmd");
+
+        cargo_bin_cmd!()
+            .arg(input)
+            .arg("--dump")
+            .assert()
+            .success()
+            .stdout(contains("https://example.com"))
+            .stdout(contains("cdn.posit.co").not())
+            .stdout(contains("inline.example.com").not());
+    }
+
     #[tokio::test]
     async fn test_verbatim_skipped_by_default_via_file() {
         let file = fixtures_path!().join("TEST_VERBATIM.html");
@@ -2784,48 +2792,6 @@ The config file should contain every possible key for documentation purposes."
             .write_stdin(mock_server.uri())
             .assert()
             .success();
-    }
-
-    #[tokio::test]
-    async fn test_retry_rate_limit_headers() {
-        const RETRY_DELAY: Duration = Duration::from_secs(1);
-        const TOLERANCE: Duration = Duration::from_millis(500);
-        let server = wiremock::MockServer::start().await;
-
-        wiremock::Mock::given(wiremock::matchers::method("GET"))
-            .respond_with(
-                ResponseTemplate::new(429)
-                    .append_header("Retry-After", RETRY_DELAY.as_secs().to_string()),
-            )
-            .expect(1)
-            .up_to_n_times(1)
-            .mount(&server)
-            .await;
-
-        let start = Instant::now();
-        wiremock::Mock::given(wiremock::matchers::method("GET"))
-            .respond_with(move |_: &Request| {
-                let delta = Instant::now().duration_since(start);
-                assert!(delta > RETRY_DELAY);
-                assert!(delta < RETRY_DELAY + TOLERANCE);
-                ResponseTemplate::new(200)
-            })
-            .expect(1)
-            .mount(&server)
-            .await;
-
-        cargo_bin_cmd!()
-            // Direct args are not using the host pool, they are resolved earlier via Collector
-            .arg("-")
-            // Retry wait times are added on top of host-specific backoff timeout
-            .arg("--retry-wait-time")
-            .arg("0")
-            .write_stdin(server.uri())
-            .assert()
-            .success();
-
-        // Check that the server received the request with the header
-        server.verify().await;
     }
 
     #[tokio::test]

@@ -224,7 +224,7 @@ pub(crate) struct Config {
     /// This is useful when the default extensions are not enough and you don't
     /// want to provide a long list of inputs (e.g. file1.html, file2.md, etc.)
     ///
-    /// [default: md,mkd,mdx,mdown,mdwn,mkdn,mkdown,markdown,html,htm,css,txt,xml]
+    /// [default: md,markdown,mdx,qmd,rmd,mkd,mkdn,mdwn,mdown,mkdown,html,htm,css,txt,xml]
     #[arg(long, verbatim_doc_comment)]
     extensions: Option<FileExtensions>,
 
@@ -379,11 +379,6 @@ pub(crate) struct Config {
     #[arg(long)]
     #[serde(default)]
     pub(crate) exclude: Vec<String>,
-
-    /// Deprecated; use `--exclude-path` instead
-    #[arg(long)]
-    #[serde(default)]
-    pub(crate) exclude_file: Vec<String>,
 
     /// Exclude paths from getting checked.
     /// The values are treated as regular expressions.
@@ -545,11 +540,6 @@ pub(crate) struct Config {
     // Using `-X` as a short param similar to curl
     #[arg(short = 'X', long)]
     method: Option<String>,
-
-    /// Deprecated; use `--base-url` instead
-    #[arg(long, value_parser = parse_base_info)]
-    #[serde(skip)]
-    pub(crate) base: Option<BaseInfo>,
 
     /// Base URL to use when resolving relative URLs in local files. If specified,
     /// relative links in local files are interpreted as being relative to the given
@@ -926,7 +916,6 @@ impl Config {
                 accept,
                 accept_timeouts,
                 archive,
-                base,
                 base_url,
                 basic_auth,
                 cache,
@@ -979,7 +968,6 @@ impl Config {
             },
             chain {
                 exclude,
-                exclude_file,
                 exclude_path,
                 include,
                 fallback_extensions,
